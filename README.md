@@ -276,10 +276,12 @@ Después de ejecutar el pipeline completo, obtendrá:
 - **Sebastián Palacio Betancur**: Implementación del pipeline de fusión, calibración y medición.
 - **Juan Manuel Sanchez Restrepo**: Implementación del pipeline de fusión, calibración y medición.
 - **Henrry Uribe Cabrera Ordonez**: Implementación del pipeline de fusión, calibración y medición.
-= **Laura Sanin Colorado**: Implementación del pipeline de fusión, calibración y medición.
+- **Laura Sanin Colorado**: Implementación del pipeline de fusión, calibración y medición.
 
 Este proyecto es parte del curso de Visión por Computador.
+
 Profesor: Juan David Ospina Arango
+
 Monitor: Andrés Mauricio Zapata
 
 
