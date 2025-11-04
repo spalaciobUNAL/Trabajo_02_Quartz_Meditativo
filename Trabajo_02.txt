@@ -1,0 +1,130 @@
+Trabajo 2: Fusión de Perspectivas -
+Registro de Imágenes y Medición del
+Mundo Real
+Profesor: Juan David Ospina Arango
+Monitor: Andrés Mauricio Zapata
+🎯 Objetivo del Trabajo
+En este trabajo pondremos en práctica los conceptos fundamentales del registro de imágenes
+(image registration) para crear una vista unificada a partir de múltiples perspectivas.
+Utilizaremos las técnicas de detección de características, emparejamiento robusto y
+transformaciones geométricas para fusionar tres imágenes de un comedor (el de la casa del
+profesor) y, adicionalmente, extraeeremos mediciones del mundo real a partir de la
+calibración con objetos de referencia.
+Este ejercicio nos permitirá experimentar con uno de los problemas fundamentales de la
+visión por computador: ¿cómo podemos combinar múltiples vistas parciales para crear una
+representación más completa de una escena?
+📋 Descripción del Problema
+Se proporcionan tres fotografías del mismo comedor (la casa del profesor J) tomadas
+desde diferentes posiciones. Su misión es:
+1. Registrar y fusionar las tres imágenes en una sola vista coherente
+2. Calibrar el sistema usando las dimensiones conocidas de objetos de referencia:
+o El cuadro de la Virgen de Guadalupe tiene una altura de 117 cm
+o La mesa tiene un ancho de 161.1 cm
+3. Estimar las dimensiones de otros elementos en la escena usando la calibración
+obtenida
+🔧 Requerimientos Técnicos
+Parte 1: Validación con Imágenes Sintéticas (30%)
+Antes de trabajar con las imágenes reales, deben validar su pipeline de registro:
+ Crear un conjunto de imágenes sintéticas con transformaciones conocidas (rotación,
+traslación, escala)
+• Aplicar su algoritmo de registro y comparar las transformaciones estimadas con las
+verdaderas (ground truth)
+• Calcular métricas de error (RMSE, error angular, etc.)
+• Documentar cómo los parámetros afectan la calidad del registro
+Parte 2: Registro de las Imágenes del Comedor (40%)
+Implementar el pipeline completo de registro:
+1. Detección de características: experimentar con al menos dos detectores (SIFT,
+ORB, AKAZE, etc.)
+2. Emparejamiento de características: implementar estrategias de matching robustas
+3. Estimación de homografías: usar RANSAC para filtrar outliers
+4. Fusión de imágenes: implementar técnicas de blending para transiciones suaves
+5. Optimización global: considerar técnicas de bundle adjustment si es necesario
+Parte 3: Calibración y Medición (30%)
+Una vez registradas las imágenes:
+• Usar las dimensiones conocidas para establecer la escala métrica
+• Implementar una herramienta interactiva para medir distancias en la imagen
+fusionada
+• Estimar las dimensiones de al menos 3 elementos adicionales (ventanas, sillas,
+plantas, etc.) y adicionalmente calcular el ancho del cuadro y el largo de la mesa.
+• Analizar la incertidumbre en las mediciones
+📊 Entregables
+1. Reporte Técnico (Blog Post)
+Publicar un reporte técnico como entrada de blog en una de las siguientes plataformas:
+• RPubs
+• GitHub Pages
+• Medium
+• Observable
+• Cualquier plataforma de blogging técnico
+El reporte debe incluir:
+• Introducción: Contexto del problema y motivación
+• Marco Teórico: Explicación de los conceptos utilizados (con citas apropiadas)
+• Metodología:
+o Descripción detallada del pipeline implementado
+o Justificación de las decisiones técnicas
+o Diagramas de flujo del proceso
+• Experimentos y Resultados:
+o Resultados de validación con imágenes sintéticas
+o Visualizaciones del proceso paso a paso
+o Imagen final fusionada
+o Tabla con las mediciones estimadas
+• Análisis y Discusión:
+o Comparación de diferentes métodos probados
+o Análisis de errores y limitaciones
+o Posibles mejoras
+• Conclusiones
+• Referencias (mínimo 5 fuentes académicas)
+• Análisis de contribución individual
+2. Repositorio de GitHub
+El repositorio debe contener:
+proyecto-registro-imagenes/
+├── README.md # Descripción del proyecto y cómo ejecutarlo
+├── requirements.txt # Dependencias del proyecto
+├── data/
+│ ├── original/ # Imágenes originales
+│ └── synthetic/ # Imágenes sintéticas para validación
+├── src/
+│ ├── feature_detection.py
+│ ├── matching.py
+│ ├── registration.py
+│ ├── measurement.py
+│ └── utils.py
+├── notebooks/
+│ ├── 01_exploratory_analysis.ipynb
+│ ├── 02_synthetic_validation.ipynb
+│ └── 03_main_pipeline.ipynb
+├── results/
+│ ├── figures/ # Gráficas y visualizaciones
+│ └── measurements/ # Resultados de mediciones
+└── tests/ # Pruebas unitarias (opcional pero valorado)
+Importante: El código debe estar bien documentado con docstrings y comentarios
+explicativos.
+💡 Sugerencias y Tips
+Para Disfrutar el Proceso:
+1. Experimenten creativamente: prueben diferentes combinaciones de detectores y
+descriptores. ¿Qué funciona mejor para estas imágenes específicas?
+2. Visualicen cada paso: crear visualizaciones intermedias les ayudará a entender qué
+está pasando y a detectar problemas temprano
+3. Piensen en aplicaciones reales: este tipo de técnicas se usa en Google Street View,
+drones de mapeo, reconstrucción 3D de patrimonio cultural, etc.
+Recursos Recomendados:
+• OpenCV tutorials sobre feature matching y homography:
+o Feature Matching con OpenCV
+o Feature Matching + Homography para encontrar objetos
+o Documentación sobre findHomography
+• Paper original de SIFT (Lowe, 2004) Distinctive Image Features from Scale-
+Invariant Keypoints
+• "Multiple View Geometry" de Hartley & Zisserman (Capítulos 4-6) Página oficial
+del libro - Incluye erratas y material suplementario
+• PyImageSearch tutorials sobre image stitching:
+o OpenCV Panorama Stitching
+o Image Stitching con OpenCV y Python
+o Real-time Panorama and Image Stitching
+Retos Opcionales (Puntos Extra):
+• Implementar un método de detección de características propio
+• Crear un video mostrando el proceso de registro animado
+• Extender a registro 3D estimando la estructura de la escena
+• Implementar una interfaz web interactiva para las mediciones
+🤝 Trabajo en Equipo
+Este trabajo debe realizarse en los equipos ya conformados. Se espera que todos los
+miembros contribuyan equitativamente. En el reporte, incluyan una sección describiendo la
+contribución de cada integrante.
