@@ -195,11 +195,12 @@ class InteractiveMeasurementTool:
         self.fig, self.ax = plt.subplots(figsize=(12, 8))
         self.ax.imshow(self.image)
         self.ax.set_title('Click para seleccionar dos puntos y medir distancia\n'
-                         'Click derecho para limpiar selección')
+                         'Click derecho para eliminar el último punto')
         
         self.points = []
         self.lines = []
         self.texts = []
+        self.markers = []  # Lista para guardar los marcadores de puntos
         
         def onclick(event):
             if event.inaxes != self.ax:
@@ -209,8 +210,9 @@ class InteractiveMeasurementTool:
                 x, y = int(event.xdata), int(event.ydata)
                 self.points.append((x, y))
                 
-                # Dibujar punto
-                self.ax.plot(x, y, 'ro', markersize=8)
+                # Dibujar punto y guardar referencia
+                marker, = self.ax.plot(x, y, 'ro', markersize=4)
+                self.markers.append(marker)
                 
                 if len(self.points) == 2:
                     # Medir distancia
@@ -241,13 +243,21 @@ class InteractiveMeasurementTool:
                     
                     # Limpiar puntos para próxima medición
                     self.points = []
+                    self.markers = []
                 
                 self.fig.canvas.draw()
             
-            elif event.button == 3:  # Click derecho - limpiar
-                self.points = []
-                # Limpiar visualización temporal
-                self.fig.canvas.draw()
+            elif event.button == 3:  # Click derecho - eliminar último punto
+                if self.points:
+                    # Eliminar el último punto de la lista
+                    self.points.pop()
+                    
+                    # Eliminar el último marcador visual
+                    if self.markers:
+                        marker = self.markers.pop()
+                        marker.remove()
+                    
+                    self.fig.canvas.draw()
         
         self.fig.canvas.mpl_connect('button_press_event', onclick)
         
@@ -387,166 +397,6 @@ def measure_distance_simple(image: np.ndarray, point1: Tuple[int, int],
     return measurement
 
 
-def create_measurement_report(measurements: List[Dict], 
-                             calibrator: Calibrator,
-                             save_path: Optional[str] = None) -> None:
-    """
-    Crea un reporte visual de las mediciones.
-    
-    Args:
-        measurements: Lista de mediciones
-        calibrator: Calibrador usado
-        save_path: Ruta donde guardar el reporte (opcional)
-    """
-    if not measurements:
-        print("No hay mediciones para reportar")
-        return
-    
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Reporte de Mediciones', fontsize=16, fontweight='bold')
-    
-    # 1. Histograma de distancias
-    ax = axes[0, 0]
-    distances_cm = [m['cm_distance'] for m in measurements if m.get('cm_distance') is not None]
-    
-    if distances_cm:
-        ax.hist(distances_cm, bins=min(20, len(distances_cm)), 
-               color='steelblue', alpha=0.7, edgecolor='black')
-        ax.axvline(np.mean(distances_cm), color='red', linestyle='--', 
-                  linewidth=2, label=f'Media: {np.mean(distances_cm):.2f} cm')
-        ax.set_xlabel('Distancia (cm)', fontsize=11)
-        ax.set_ylabel('Frecuencia', fontsize=11)
-        ax.set_title('Distribución de Distancias Medidas')
-        ax.legend()
-        ax.grid(alpha=0.3)
-    else:
-        ax.text(0.5, 0.5, 'No hay mediciones en CM', 
-               ha='center', va='center', transform=ax.transAxes)
-    
-    # 2. Tabla de mediciones
-    ax = axes[0, 1]
-    ax.axis('off')
-    
-    table_data = [['ID', 'Distancia (cm)', 'Incert. (%)']]
-    for i, m in enumerate(measurements, 1):
-        if m.get('cm_distance') is not None:
-            dist = f"{m['cm_distance']:.2f}"
-            unc = f"{m.get('uncertainty_percent', 0):.2f}" if m.get('uncertainty_percent') else 'N/A'
-        else:
-            dist = 'N/A'
-            unc = 'N/A'
-        table_data.append([str(i), dist, unc])
-    
-    table = ax.table(cellText=table_data, cellLoc='center', loc='center',
-                    colWidths=[0.2, 0.4, 0.4])
-    table.auto_set_font_size(False)
-    table.set_fontsize(9)
-    table.scale(1, 2)
-    
-    # Estilo para encabezado
-    for i in range(3):
-        table[(0, i)].set_facecolor('#4CAF50')
-        table[(0, i)].set_text_props(weight='bold', color='white')
-    
-    ax.set_title('Tabla de Mediciones')
-    
-    # 3. Información de calibración
-    ax = axes[1, 0]
-    ax.axis('off')
-    
-    cal_info = calibrator.get_calibration_info()
-    info_text = f"""
-    INFORMACIÓN DE CALIBRACIÓN
-    
-    Estado: {'Calibrado' if cal_info['calibrated'] else 'No calibrado'}
-    Escala: {cal_info['pixels_per_cm']:.4f} píxeles/cm
-    Referencias: {cal_info['n_references']}
-    Incertidumbre: {cal_info['uncertainty_percent']:.2f}% 
-                   (si está disponible)
-    
-    Objetos de Referencia:
-    """
-    
-    for ref in cal_info['references']:
-        info_text += f"\n  • {ref['name']}: {ref['real_length_cm']:.1f} cm"
-    
-    ax.text(0.1, 0.5, info_text, transform=ax.transAxes,
-           fontsize=10, verticalalignment='center',
-           fontfamily='monospace',
-           bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
-    
-    # 4. Estadísticas
-    ax = axes[1, 1]
-    
-    if distances_cm:
-        stats_text = f"""
-        ESTADÍSTICAS
-        
-        N° Mediciones: {len(distances_cm)}
-        Media: {np.mean(distances_cm):.2f} cm
-        Mediana: {np.median(distances_cm):.2f} cm
-        Desv. Std: {np.std(distances_cm):.2f} cm
-        Mínimo: {np.min(distances_cm):.2f} cm
-        Máximo: {np.max(distances_cm):.2f} cm
-        Rango: {np.max(distances_cm) - np.min(distances_cm):.2f} cm
-        """
-        
-        ax.text(0.1, 0.5, stats_text, transform=ax.transAxes,
-               fontsize=11, verticalalignment='center',
-               fontfamily='monospace',
-               bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.5))
-    else:
-        ax.text(0.5, 0.5, 'No hay suficientes datos\npara estadísticas',
-               ha='center', va='center', transform=ax.transAxes)
-    
-    ax.axis('off')
-    
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Reporte guardado en: {save_path}")
-    
-    plt.show()
 
-
-def analyze_measurement_uncertainty(calibrator: Calibrator,
-                                   n_simulations: int = 1000) -> Dict:
-    """
-    Analiza la incertidumbre en las mediciones mediante simulación Monte Carlo.
-    
-    Args:
-        calibrator: Calibrador a analizar
-        n_simulations: Número de simulaciones
-        
-    Returns:
-        Diccionario con análisis de incertidumbre
-    """
-    if not calibrator.calibrated or len(calibrator.reference_objects) < 2:
-        return {'error': 'Calibrador no válido o insuficientes referencias'}
-    
-    # Extraer escalas de referencias
-    scales = np.array([obj['scale'] for obj in calibrator.reference_objects])
-    mean_scale = np.mean(scales)
-    std_scale = np.std(scales)
-    
-    # Simular mediciones
-    simulated_scales = np.random.normal(mean_scale, std_scale, n_simulations)
-    
-    # Para una distancia de referencia de 100 cm
-    reference_cm = 100
-    simulated_measurements = reference_cm * simulated_scales
-    
-    analysis = {
-        'mean_scale': mean_scale,
-        'std_scale': std_scale,
-        'cv_percent': (std_scale / mean_scale) * 100,  # Coeficiente de variación
-        'reference_distance_cm': reference_cm,
-        'simulated_mean': np.mean(simulated_measurements),
-        'simulated_std': np.std(simulated_measurements),
-        'confidence_interval_95': np.percentile(simulated_measurements, [2.5, 97.5])
-    }
-    
-    return analysis
 
 

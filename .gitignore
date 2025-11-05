@@ -2,6 +2,6 @@ __pycache__/
 .venv/
 .vscode/
 .ipynb_checkpoints/
-
+.cursor/
 
 

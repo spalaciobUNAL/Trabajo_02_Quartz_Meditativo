@@ -196,7 +196,8 @@ def create_mask(image_shape: Tuple[int, int], H: np.ndarray = None,
 
 
 def simple_blend(img1: np.ndarray, img2: np.ndarray,
-                mask1: np.ndarray = None, mask2: np.ndarray = None) -> np.ndarray:
+                mask1: np.ndarray = None, mask2: np.ndarray = None,
+                weight1: float = 1.0, weight2: float = 1.0) -> np.ndarray:
     """
     Fusión simple de dos imágenes usando promedio ponderado.
     
@@ -205,6 +206,8 @@ def simple_blend(img1: np.ndarray, img2: np.ndarray,
         img2: Segunda imagen
         mask1: Máscara de la primera imagen
         mask2: Máscara de la segunda imagen
+        weight1: Peso relativo de la primera imagen (default: 1.0)
+        weight2: Peso relativo de la segunda imagen (default: 1.0)
         
     Returns:
         Imagen fusionada
@@ -213,6 +216,14 @@ def simple_blend(img1: np.ndarray, img2: np.ndarray,
         mask1 = (img1 > 0).any(axis=2 if len(img1.shape) == 3 else None).astype(np.uint8) * 255
     if mask2 is None:
         mask2 = (img2 > 0).any(axis=2 if len(img2.shape) == 3 else None).astype(np.uint8) * 255
+    
+    # Normalizar pesos
+    total_weight = weight1 + weight2
+    if total_weight == 0:
+        weight1, weight2 = 1.0, 1.0
+        total_weight = 2.0
+    w1 = weight1 / total_weight
+    w2 = weight2 / total_weight
     
     # Crear resultado
     result = np.zeros_like(img1)
@@ -225,22 +236,23 @@ def simple_blend(img1: np.ndarray, img2: np.ndarray,
     only_img2 = (mask1 == 0) & (mask2 > 0)
     result[only_img2] = img2[only_img2]
     
-    # Áreas de solapamiento - promedio simple
+    # Áreas de solapamiento - promedio ponderado
     overlap = (mask1 > 0) & (mask2 > 0)
     if len(img1.shape) == 3:
         for c in range(img1.shape[2]):
-            result[overlap, c] = (img1[overlap, c].astype(float) + 
-                                 img2[overlap, c].astype(float)) / 2
+            result[overlap, c] = (img1[overlap, c].astype(float) * w1 + 
+                                 img2[overlap, c].astype(float) * w2)
     else:
-        result[overlap] = (img1[overlap].astype(float) + 
-                          img2[overlap].astype(float)) / 2
+        result[overlap] = (img1[overlap].astype(float) * w1 + 
+                          img2[overlap].astype(float) * w2)
     
     return result.astype(img1.dtype)
 
 
 def feather_blend(img1: np.ndarray, img2: np.ndarray,
                  mask1: np.ndarray = None, mask2: np.ndarray = None,
-                 feather_amount: int = 50) -> np.ndarray:
+                 feather_amount: int = 50,
+                 weight1: float = 1.0, weight2: float = 1.0) -> np.ndarray:
     """
     Fusión con feathering (transición suave en bordes).
     
@@ -250,6 +262,8 @@ def feather_blend(img1: np.ndarray, img2: np.ndarray,
         mask1: Máscara de la primera imagen
         mask2: Máscara de la segunda imagen
         feather_amount: Cantidad de píxeles para el feathering
+        weight1: Peso relativo de la primera imagen (default: 1.0)
+        weight2: Peso relativo de la segunda imagen (default: 1.0)
         
     Returns:
         Imagen fusionada
@@ -267,21 +281,25 @@ def feather_blend(img1: np.ndarray, img2: np.ndarray,
     dist1 = np.clip(dist1 / feather_amount, 0, 1)
     dist2 = np.clip(dist2 / feather_amount, 0, 1)
     
+    # Aplicar pesos relativos a las distancias
+    dist1_weighted = dist1 * weight1
+    dist2_weighted = dist2 * weight2
+    
     # Calcular pesos normalizados
-    total_dist = dist1 + dist2
+    total_dist = dist1_weighted + dist2_weighted
     # Evitar división por cero
     total_dist = np.where(total_dist == 0, 1, total_dist)
     
-    weight1 = dist1 / total_dist
-    weight2 = dist2 / total_dist
+    w1 = dist1_weighted / total_dist
+    w2 = dist2_weighted / total_dist
     
     # Expandir pesos a las dimensiones de la imagen
     if len(img1.shape) == 3:
-        weight1 = np.expand_dims(weight1, axis=2)
-        weight2 = np.expand_dims(weight2, axis=2)
+        w1 = np.expand_dims(w1, axis=2)
+        w2 = np.expand_dims(w2, axis=2)
     
     # Fusionar con pesos
-    result = (img1 * weight1 + img2 * weight2).astype(img1.dtype)
+    result = (img1 * w1 + img2 * w2).astype(img1.dtype)
     
     return result
 
@@ -350,9 +368,15 @@ def multiband_blend(img1: np.ndarray, img2: np.ndarray,
     blended_pyramid = []
     for l1, l2, mask in zip(laplacian1, laplacian2, gauss_mask):
         # Asegurar que la máscara tenga las dimensiones correctas
-        if len(img1.shape) == 3 and len(mask.shape) == 2:
-            mask = np.expand_dims(mask, axis=2)
         mask = cv2.resize(mask, (l1.shape[1], l1.shape[0]))
+        if len(l1.shape) == 3 and len(mask.shape) == 2:
+            # Expandir máscara para imágenes RGB
+            mask = np.expand_dims(mask, axis=2)
+        # Asegurar que mask tenga el mismo número de canales que las imágenes
+        if len(l1.shape) == 3:
+            # Si las imágenes son RGB, asegurar que mask tenga 3 canales
+            if len(mask.shape) == 2:
+                mask = np.expand_dims(mask, axis=2)
         blended = l1 * mask + l2 * (1 - mask)
         blended_pyramid.append(blended)
     
@@ -374,14 +398,16 @@ class ImageStitcher:
     Clase para fusionar múltiples imágenes en un panorama.
     """
     
-    def __init__(self, blend_method: str = 'feather'):
+    def __init__(self, blend_method: str = 'feather', image_weights: List[float] = None):
         """
         Inicializa el stitcher.
         
         Args:
             blend_method: Método de blending ('simple', 'feather', 'multiband')
+            image_weights: Lista de pesos para cada imagen (None = pesos iguales)
         """
         self.blend_method = blend_method
+        self.image_weights = image_weights
         self.homographies = []
         self.reference_idx = None
     
@@ -510,11 +536,25 @@ class ImageStitcher:
                 result = warped
                 result_mask = warped_mask
             else:
+                # Obtener pesos relativos
+                if self.image_weights is not None and len(self.image_weights) == len(images):
+                    # Para la primera imagen (result), usar su peso individual
+                    # Para la nueva imagen (warped), usar su peso individual
+                    # Solo necesitamos los pesos relativos entre las dos imágenes
+                    weight_result = self.image_weights[0] if i == 1 else 1.0
+                    weight_new = self.image_weights[i] if i < len(self.image_weights) else 1.0
+                else:
+                    weight_result = 1.0
+                    weight_new = 1.0
+                
                 if self.blend_method == 'simple':
-                    result = simple_blend(result, warped, result_mask, warped_mask)
+                    result = simple_blend(result, warped, result_mask, warped_mask,
+                                         weight1=weight_result, weight2=weight_new)
                 elif self.blend_method == 'feather':
-                    result = feather_blend(result, warped, result_mask, warped_mask)
+                    result = feather_blend(result, warped, result_mask, warped_mask,
+                                          weight1=weight_result, weight2=weight_new)
                 elif self.blend_method == 'multiband':
+                    # Multiband no soporta pesos aún, usar sin pesos
                     result = multiband_blend(result, warped, result_mask, warped_mask)
                 
                 # Actualizar máscara
