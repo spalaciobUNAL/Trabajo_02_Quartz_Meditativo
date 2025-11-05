@@ -47,7 +47,7 @@ proyecto-registro-imagenes/
 
 1. Clonar el repositorio:
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/spalaciobUNAL/Trabajo_02_Quartz_Meditativo.git
 cd Trabajo_02_Quartz_Meditativo
 ```
 
